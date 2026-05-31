@@ -6,832 +6,545 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CardRemind" />
-  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="theme-color" content="#0d1117" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <title>CardRemind</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --bg: #0a0a0f;
-      --surface: #13131a;
-      --surface2: #1c1c27;
-      --border: #2a2a3a;
-      --accent: #c8f564;
-      --accent2: #64c8f5;
-      --danger: #f56464;
-      --warn: #f5c864;
-      --text: #f0f0f5;
-      --muted: #6b6b80;
-      --radius: 16px;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
+      background: #0d1117;
+      color: #fff;
+      font-family: 'Space Mono', monospace;
       min-height: 100dvh;
-      padding-bottom: env(safe-area-inset-bottom);
-      overflow-x: hidden;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
     }
 
-    /* HEADER */
+    /* ── HEADER ── */
     .header {
-      padding: 56px 24px 24px;
-      padding-top: max(56px, calc(env(safe-area-inset-top) + 20px));
-      background: linear-gradient(180deg, #0d0d14 0%, transparent 100%);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      padding: max(52px, calc(env(safe-area-inset-top) + 16px)) 20px 0;
+      display: flex; align-items: center; justify-content: space-between;
     }
-
-    .header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+    .app-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px; font-weight: 800; letter-spacing: -0.5px;
     }
-
-    .app-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 32px;
-      line-height: 1;
-      letter-spacing: -0.5px;
-    }
-
-    .app-title span {
-      color: var(--accent);
-      font-style: italic;
-    }
-
+    .app-name span { color: #e8ff47; }
     .add-btn {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: none;
-      cursor: pointer;
+      width: 38px; height: 38px;
+      border: 1px solid rgba(232,255,71,0.4);
+      background: rgba(232,255,71,0.08);
+      color: #e8ff47;
+      font-size: 22px; font-weight: 700;
+      border-radius: 4px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px;
-      color: #0a0a0f;
-      font-weight: bold;
-      transition: transform 0.15s, opacity 0.15s;
-      flex-shrink: 0;
+      transition: background .15s;
+      font-family: 'Syne', sans-serif;
     }
-    .add-btn:active { transform: scale(0.92); opacity: 0.85; }
+    .add-btn:active { background: rgba(232,255,71,0.18); }
 
-    /* SUMMARY STRIP */
-    .summary {
-      display: flex;
-      gap: 12px;
-      padding: 16px 24px 0;
-      overflow-x: auto;
-      scrollbar-width: none;
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      display: grid; grid-template-columns: 1fr 1fr;
+      margin: 20px 20px 0;
+      border: 1px solid rgba(255,255,255,0.07);
     }
-    .summary::-webkit-scrollbar { display: none; }
+    .sum-panel { padding: 14px 18px; }
+    .sum-panel:first-child { border-right: 1px solid rgba(255,255,255,0.07); background: rgba(255,107,107,0.06); }
+    .sum-panel:last-child { background: rgba(48,209,88,0.06); }
+    .sum-label { font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.45); margin-bottom: 6px; }
+    .sum-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; line-height: 1; }
+    .sum-value.red { color: #ff6b6b; }
+    .sum-value.green { color: #30d158; }
 
-    .summary-chip {
-      flex-shrink: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      padding: 8px 16px;
-      font-size: 12px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    /* ── CARD LIST ── */
+    .list { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .section-title { font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.3); margin-bottom: -2px; }
+
+    /* ── CARD TILE ── */
+    .cc-tile { border-radius: 0; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+
+    /* Gradient top */
+    .cc-top-section {
+      padding: 20px 20px 16px;
+      position: relative; overflow: hidden;
     }
-    .summary-chip b { color: var(--text); font-weight: 500; }
-    .summary-chip.urgent { border-color: var(--danger); }
-    .summary-chip.urgent b { color: var(--danger); }
-
-    /* MAIN CONTENT */
-    .content {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .cc-top-section .deco1 {
+      position: absolute; top: -30px; right: -30px;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.05);
     }
-
-    .section-label {
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-top: 8px;
-      margin-bottom: 4px;
+    .cc-top-section .deco2 {
+      position: absolute; bottom: -20px; right: 20px;
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(255,255,255,0.05);
     }
 
-    /* CARD ITEM */
-    .card-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.15s;
-      position: relative;
-      overflow: hidden;
-    }
-    .card-item::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-      background: var(--accent2);
-      border-radius: 3px 0 0 3px;
-    }
-    .card-item.urgent::before { background: var(--danger); }
-    .card-item.soon::before { background: var(--warn); }
-    .card-item.paid::before { background: var(--muted); opacity: 0.4; }
-    .card-item.paid { opacity: 0.5; }
-    .card-item:active { background: var(--surface2); transform: scale(0.99); }
+    /* Card colours */
+    .cc-tile.c0 .cc-top-section { background: linear-gradient(135deg, #1a1a2e 0%, #e94560 100%); }
+    .cc-tile.c1 .cc-top-section { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); }
+    .cc-tile.c2 .cc-top-section { background: linear-gradient(135deg, #0f3460 0%, #533483 100%); }
+    .cc-tile.c3 .cc-top-section { background: linear-gradient(135deg, #1b4332 0%, #40916c 100%); }
+    .cc-tile.c4 .cc-top-section { background: linear-gradient(135deg, #370617 0%, #e85d04 100%); }
+    .cc-tile.c5 .cc-top-section { background: linear-gradient(135deg, #240046 0%, #7b2d8b 100%); }
 
-    .card-color-dot {
-      width: 40px; height: 40px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
+    .cc-header-row { display: flex; justify-content: space-between; align-items: flex-start; position: relative; }
+    .cc-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.6); margin-bottom: 4px; font-family: 'Space Mono', monospace; }
+    .cc-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: #fff; line-height: 1.2; }
 
-    .card-info { flex: 1; min-width: 0; }
-    .card-name {
-      font-family: 'DM Serif Display', serif;
-      font-size: 17px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .card-meta {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 3px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
+    /* Chip SVG */
+    .chip-wrap { position: relative; flex-shrink: 0; }
 
-    .card-due {
-      text-align: right;
-      flex-shrink: 0;
-    }
-    .due-days {
-      font-size: 22px;
-      font-family: 'DM Serif Display', serif;
-      line-height: 1;
-    }
-    .due-days.urgent { color: var(--danger); }
-    .due-days.soon { color: var(--warn); }
-    .due-days.ok { color: var(--accent); }
-    .due-days.paid { color: var(--muted); }
-    .due-label { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; }
+    /* Card number */
+    .cc-number { font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,0.45); margin: 14px 0 10px; font-family: 'Space Mono', monospace; }
 
-    /* EMPTY STATE */
-    .empty {
-      text-align: center;
-      padding: 60px 24px;
-      color: var(--muted);
-    }
-    .empty-icon { font-size: 48px; margin-bottom: 16px; }
-    .empty-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); margin-bottom: 8px; }
-    .empty-sub { font-size: 13px; line-height: 1.6; }
+    /* Balance row */
+    .cc-meta-row { display: flex; justify-content: space-between; align-items: flex-end; position: relative; }
+    .cc-balance-block .cc-bal-label { font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 3px; }
+    .cc-balance-block .cc-bal-amt { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: #fff; }
 
-    /* MODAL */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      z-index: 100;
-      display: none;
-      align-items: flex-end;
+    /* Days countdown */
+    .cc-days-block { text-align: right; }
+    .cc-days-num {
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+      padding: 4px 10px; border-radius: 2px;
+      display: inline-block; letter-spacing: 0.5px;
     }
-    .modal-overlay.open { display: flex; }
+    .cc-days-num.overdue   { background: rgba(255,77,77,0.2);   color: #ff4d4d; border: 1px solid rgba(255,77,77,0.4); }
+    .cc-days-num.due-soon  { background: rgba(255,149,0,0.15);  color: #ff9500; border: 1px solid rgba(255,149,0,0.35); }
+    .cc-days-num.this-week { background: rgba(255,214,10,0.12); color: #ffd60a; border: 1px solid rgba(255,214,10,0.3); }
+    .cc-days-num.upcoming  { background: rgba(48,209,88,0.1);   color: #30d158; border: 1px solid rgba(48,209,88,0.3); }
+    .cc-days-num.paid      { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.12); }
+    .cc-due-on { font-size: 9px; color: rgba(255,255,255,0.35); letter-spacing: 1px; margin-top: 4px; }
 
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 24px 24px 0 0;
-      padding: 28px 24px;
-      padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 16px));
-      width: 100%;
-      animation: slideUp 0.3s cubic-bezier(0.32,0.72,0,1);
-    }
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
-
-    .modal-handle {
-      width: 36px; height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      margin: 0 auto 24px;
-    }
-
-    .modal-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 22px;
-      margin-bottom: 20px;
-    }
-
-    .form-group { margin-bottom: 16px; }
-    .form-label {
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-      display: block;
-    }
-
-    .form-input {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.15s;
-      -webkit-appearance: none;
-    }
-    .form-input:focus { border-color: var(--accent); }
-
-    .emoji-picker {
-      display: flex;
-      gap: 8px;
+    /* Bottom buttons */
+    .cc-btn-row {
+      display: flex; gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.25);
       flex-wrap: wrap;
     }
-    .emoji-opt {
-      width: 44px; height: 44px;
-      border-radius: 10px;
-      background: var(--surface2);
-      border: 2px solid transparent;
-      cursor: pointer;
-      font-size: 20px;
-      display: flex; align-items: center; justify-content: center;
-      transition: border-color 0.15s;
+    .btn-ghost {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      padding: 7px 14px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: transparent; color: rgba(255,255,255,0.7);
+      cursor: pointer; transition: background .12s, color .12s;
     }
-    .emoji-opt.selected { border-color: var(--accent); background: rgba(200,245,100,0.1); }
-
-    .color-picker {
-      display: flex;
-      gap: 8px;
+    .btn-ghost:active { background: rgba(255,255,255,0.08); }
+    .btn-ghost.paid-btn { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); }
+    .btn-ghost.mark-paid { border-color: rgba(48,209,88,0.5); color: #30d158; }
+    .btn-ghost.mark-paid:active { background: rgba(48,209,88,0.1); }
+    .btn-danger {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      padding: 7px 14px; border-radius: 2px;
+      border: 1px solid rgba(255,77,77,0.35);
+      background: rgba(255,77,77,0.08); color: #ff6b6b;
+      cursor: pointer; transition: background .12s;
     }
-    .color-opt {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      border: 3px solid transparent;
-      cursor: pointer;
-      transition: transform 0.15s;
+    .btn-danger:active { background: rgba(255,77,77,0.18); }
+
+    /* Min payment note */
+    .cc-min { font-size: 9px; color: rgba(255,255,255,0.35); letter-spacing: 1px; margin-top: 2px; }
+
+    /* Paid overlay */
+    .cc-tile.paid-tile .cc-top-section { opacity: 0.55; }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 72px 24px; color: rgba(255,255,255,0.3); }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
+    .empty-sub { font-size: 12px; line-height: 1.7; letter-spacing: 0.5px; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
     }
-    .color-opt.selected { border-color: white; transform: scale(1.15); }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #0d1117;
+      border: 1px solid rgba(232,255,71,0.2);
+      width: 100%; max-width: 440px;
+      padding: 28px;
+      animation: fadeIn .2s ease;
+      max-height: 90dvh; overflow-y: auto;
+    }
+    @keyframes fadeIn { from { opacity:0; transform: scale(0.97); } to { opacity:1; transform: scale(1); } }
 
-    .form-row { display: flex; gap: 12px; }
-    .form-row .form-group { flex: 1; }
+    .modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .modal-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 24px; letter-spacing: 1px; }
 
-    .btn-row { display: flex; gap: 10px; margin-top: 20px; }
-
-    .btn {
-      flex: 1;
-      padding: 14px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      font-family: 'DM Mono', monospace;
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.45); }
+    .field-row { display: flex; gap: 12px; }
+    .field-row .field { flex: 1; }
+    .input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      font-family: 'Space Mono', monospace;
       font-size: 14px;
-      font-weight: 500;
-      transition: transform 0.1s, opacity 0.1s;
+      padding: 10px 12px;
+      border-radius: 2px;
+      outline: none;
+      width: 100%;
+      transition: border-color .15s;
+      -webkit-appearance: none;
     }
-    .btn:active { transform: scale(0.97); opacity: 0.85; }
-    .btn-primary { background: var(--accent); color: #0a0a0f; }
-    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-danger { background: rgba(245,100,100,0.15); color: var(--danger); border: 1px solid rgba(245,100,100,0.3); }
+    .input:focus { border-color: rgba(232,255,71,0.5); }
+    select.input { appearance: none; -webkit-appearance: none; }
 
-    /* DETAIL MODAL */
-    .detail-amount {
-      font-family: 'DM Serif Display', serif;
-      font-size: 40px;
-      margin: 4px 0;
-    }
-    .detail-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin: 20px 0;
-    }
-    .detail-cell {
-      background: var(--surface2);
-      border-radius: 10px;
-      padding: 12px;
-    }
-    .detail-cell-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
-    .detail-cell-val { font-size: 16px; }
-    .detail-cell-val.urgent { color: var(--danger); }
-    .detail-cell-val.warn { color: var(--warn); }
-    .detail-cell-val.ok { color: var(--accent); }
+    .fields-stack { display: flex; flex-direction: column; gap: 14px; }
 
-    /* NOTIFICATION BANNER */
-    .notif-banner {
-      margin: 0 24px 0;
-      padding: 12px 16px;
-      background: rgba(200,245,100,0.08);
-      border: 1px solid rgba(200,245,100,0.2);
-      border-radius: 10px;
-      font-size: 12px;
-      color: var(--accent);
-      display: none;
-      align-items: center;
-      gap: 10px;
+    /* Color picker */
+    .color-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cswatch {
+      width: 32px; height: 32px; border-radius: 2px;
+      border: 2px solid transparent; cursor: pointer;
+      transition: transform .12s, border-color .12s;
     }
+    .cswatch.sel { border-color: #e8ff47; transform: scale(1.1); }
+    .cswatch.s0 { background: linear-gradient(135deg,#1a1a2e,#e94560); }
+    .cswatch.s1 { background: linear-gradient(135deg,#16213e,#0f3460); }
+    .cswatch.s2 { background: linear-gradient(135deg,#0f3460,#533483); }
+    .cswatch.s3 { background: linear-gradient(135deg,#1b4332,#40916c); }
+    .cswatch.s4 { background: linear-gradient(135deg,#370617,#e85d04); }
+    .cswatch.s5 { background: linear-gradient(135deg,#240046,#7b2d8b); }
+
+    .modal-btn-row { display: flex; gap: 10px; margin-top: 24px; }
+    .modal-btn {
+      flex: 1; padding: 12px;
+      font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      border-radius: 2px; border: none; cursor: pointer;
+      transition: opacity .12s;
+    }
+    .modal-btn:active { opacity: 0.8; }
+    .modal-btn-primary { background: #e8ff47; color: #0d1117; }
+    .modal-btn-cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.12); }
+
+    /* Notif banner */
+    .notif-banner { margin: 16px 20px 0; padding: 10px 14px; border: 1px solid rgba(232,255,71,0.2); background: rgba(232,255,71,0.04); font-size: 11px; color: rgba(232,255,71,0.8); letter-spacing: 0.5px; display: none; align-items: center; gap: 10px; }
     .notif-banner.show { display: flex; }
-    .notif-banner button {
-      background: var(--accent);
-      color: #0a0a0f;
-      border: none;
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      font-family: 'DM Mono', monospace;
-      margin-left: auto;
-      white-space: nowrap;
-    }
+    .notif-banner button { margin-left: auto; background: rgba(232,255,71,0.15); color: #e8ff47; border: 1px solid rgba(232,255,71,0.3); padding: 4px 12px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1px; cursor: pointer; }
 
-    select.form-input { appearance: none; -webkit-appearance: none; }
+    /* History chips in modal */
+    .history-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .h-chip { font-size: 10px; padding: 3px 8px; border: 1px solid rgba(48,209,88,0.3); color: #30d158; background: rgba(48,209,88,0.08); letter-spacing: 0.5px; }
+    .h-empty { font-size: 11px; color: rgba(255,255,255,0.25); }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-top">
-    <div>
-      <div class="app-title">Card<span>Remind</span></div>
-    </div>
-    <button class="add-btn" onclick="openAddModal()">+</button>
-  </div>
+  <div class="app-name">Card<span>Remind</span></div>
+  <button class="add-btn" onclick="openAdd()">+</button>
 </div>
 
 <div class="notif-banner" id="notifBanner">
-  🔔 Enable notifications to get due-date reminders
-  <button onclick="requestNotifications()">Enable</button>
+  🔔 ENABLE PAYMENT REMINDERS
+  <button onclick="requestNotif()">ENABLE</button>
 </div>
 
-<div class="summary" id="summary"></div>
-
-<div class="content" id="content">
-  <div class="empty">
-    <div class="empty-icon">💳</div>
-    <div class="empty-title">No cards yet</div>
-    <div class="empty-sub">Tap <strong>+</strong> to add your first<br/>credit card payment reminder</div>
+<div class="summary-bar" id="summaryBar" style="display:none;">
+  <div class="sum-panel">
+    <div class="sum-label">DUE THIS MONTH</div>
+    <div class="sum-value red" id="sumDue">—</div>
+  </div>
+  <div class="sum-panel">
+    <div class="sum-label">PAID THIS MONTH</div>
+    <div class="sum-value green" id="sumPaid">0/0</div>
   </div>
 </div>
+
+<div class="list" id="list"></div>
 
 <!-- ADD / EDIT MODAL -->
-<div class="modal-overlay" id="addModal" onclick="handleOverlayClick(event, 'addModal')">
+<div class="modal-overlay" id="addModal" onclick="bgClose(event,'addModal')">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="modalTitle">Add Card</div>
-
-    <div class="form-group">
-      <label class="form-label">Card Name</label>
-      <input class="form-input" id="f-name" type="text" placeholder="e.g. Chase Sapphire" />
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Icon</label>
-      <div class="emoji-picker" id="emojiPicker">
-        <!-- filled by JS -->
+    <div class="modal-title" id="modalTitle">Add New Card</div>
+    <div class="modal-sub">Fill in your credit card details</div>
+    <div class="fields-stack">
+      <div class="field">
+        <div class="field-label">CARD NICKNAME *</div>
+        <input class="input" id="f-name" type="text" placeholder="e.g. Maybank Visa" />
+      </div>
+      <div class="field">
+        <div class="field-label">LAST 4 DIGITS</div>
+        <input class="input" id="f-last4" type="text" maxlength="4" placeholder="1234" inputmode="numeric" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <div class="field-label">DUE DAY *</div>
+          <input class="input" id="f-day" type="number" min="1" max="31" placeholder="15" />
+        </div>
+        <div class="field">
+          <div class="field-label">CURRENCY</div>
+          <select class="input" id="f-currency">
+            <option value="RM">MYR (RM)</option>
+            <option value="$">USD ($)</option>
+            <option value="S$">SGD (S$)</option>
+            <option value="€">EUR (€)</option>
+            <option value="£">GBP (£)</option>
+            <option value="₱">PHP (₱)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <div class="field-label">OUTSTANDING BALANCE</div>
+          <input class="input" id="f-balance" type="number" placeholder="5000" inputmode="decimal" />
+        </div>
+        <div class="field">
+          <div class="field-label">MIN. PAYMENT</div>
+          <input class="input" id="f-minpay" type="number" placeholder="250" inputmode="decimal" />
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">CARD COLOR</div>
+        <div class="color-grid" id="colorGrid"></div>
       </div>
     </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Due Day (of month)</label>
-        <input class="form-input" id="f-day" type="number" min="1" max="31" placeholder="e.g. 15" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Min. Amount Due</label>
-        <input class="form-input" id="f-amount" type="number" placeholder="e.g. 250" inputmode="decimal" />
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Currency</label>
-      <select class="form-input" id="f-currency">
-        <option value="$">USD ($)</option>
-        <option value="RM">MYR (RM)</option>
-        <option value="€">EUR (€)</option>
-        <option value="£">GBP (£)</option>
-        <option value="¥">JPY (¥)</option>
-        <option value="S$">SGD (S$)</option>
-        <option value="₱">PHP (₱)</option>
-        <option value="₩">KRW (₩)</option>
-      </select>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveCard()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- DETAIL MODAL -->
-<div class="modal-overlay" id="detailModal" onclick="handleOverlayClick(event, 'detailModal')">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
-      <div id="d-icon" style="font-size:36px;"></div>
-      <div>
-        <div class="modal-title" id="d-name" style="margin-bottom:0;"></div>
-        <div style="font-size:12px; color:var(--muted);">Credit Card</div>
-      </div>
-    </div>
-
-    <div class="detail-amount" id="d-amount"></div>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">minimum payment</div>
-
-    <div class="detail-grid">
-      <div class="detail-cell">
-        <div class="detail-cell-label">Due Date</div>
-        <div class="detail-cell-val" id="d-duedate"></div>
-      </div>
-      <div class="detail-cell">
-        <div class="detail-cell-label">Days Left</div>
-        <div class="detail-cell-val" id="d-daysleft"></div>
-      </div>
-      <div class="detail-cell">
-        <div class="detail-cell-label">Status</div>
-        <div class="detail-cell-val" id="d-status"></div>
-      </div>
-      <div class="detail-cell">
-        <div class="detail-cell-label">Next Cycle</div>
-        <div class="detail-cell-val" id="d-next"></div>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-danger" onclick="deleteCard()">Delete</button>
-      <button class="btn btn-secondary" onclick="editCard()">Edit</button>
-      <button class="btn btn-primary" id="d-markpaid" onclick="togglePaid()">Mark Paid</button>
+    <div class="modal-btn-row">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">CANCEL</button>
+      <button class="modal-btn modal-btn-primary" onclick="saveCard()">SAVE CARD</button>
     </div>
   </div>
 </div>
 
 <script>
-  const EMOJIS = ['💳','🏦','💰','🏧','🌟','💎','🔵','🟣','🟠','🟡','✈️','🛍️'];
-  const COLORS = ['#c8f564','#64c8f5','#f5c864','#f56464','#c864f5','#64f5c8'];
+let cards = [], editId = null, selColor = 0;
 
-  let cards = [];
+// ── DB ─────────────────────────────────────────────────────────────────
+function openDB() {
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('cardremind-db',1);
+    r.onupgradeneeded=e=>e.target.result.createObjectStore('kv');
+    r.onsuccess=e=>res(e.target.result); r.onerror=rej;
+  });
+}
+async function saveCards(d){
+  const db=await openDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction('kv','readwrite');
+    tx.objectStore('kv').put(d,'cards');
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+async function loadCards(){
+  const db=await openDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction('kv','readonly');
+    const r2=tx.objectStore('kv').get('cards');
+    r2.onsuccess=()=>res(r2.result||[]); r2.onerror=rej;
+  });
+}
+function persist(){ saveCards(cards).catch(console.error); navigator.serviceWorker?.controller?.postMessage({type:'CHECK_REMINDERS'}); }
 
-  // ── IndexedDB storage (shared with service worker) ──────────────────────
-  function openDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('cardremind-db', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('kv');
-      req.onsuccess = e => resolve(e.target.result);
-      req.onerror = () => reject();
-    });
+// ── Helpers ────────────────────────────────────────────────────────────
+function daysUntil(day){
+  const t=new Date(),tm=new Date(t.getFullYear(),t.getMonth(),day),nm=new Date(t.getFullYear(),t.getMonth()+1,day);
+  return Math.ceil(((tm>=t?tm:nm)-t)/86400000);
+}
+function dueDateStr(day){
+  const t=new Date(),tm=new Date(t.getFullYear(),t.getMonth(),day),nm=new Date(t.getFullYear(),t.getMonth()+1,day);
+  return (tm>=t?tm:nm).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function currentMonth(){const t=new Date();return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;}
+function fmtMonth(k){const[y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'short',year:'2-digit'});}
+function isPaid(c){return (c.paidMonths||[]).includes(currentMonth());}
+
+function getStatus(c){
+  if(isPaid(c)) return 'paid';
+  const d=daysUntil(c.day);
+  if(d<=0) return 'overdue';
+  if(d<=3) return 'due-soon';
+  if(d<=7) return 'this-week';
+  return 'upcoming';
+}
+function daysLabel(c){
+  const st=getStatus(c), d=daysUntil(c.day);
+  if(st==='paid')      return '✓ PAID';
+  if(d===0)            return 'TODAY';
+  if(d<0)              return `${Math.abs(d)}D OVERDUE`;
+  const labels={'due-soon':'DUE SOON','this-week':'THIS WEEK','upcoming':'UPCOMING'};
+  return `${d}D — ${labels[st]||''}`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────
+function render(){
+  const list=document.getElementById('list');
+  const bar=document.getElementById('summaryBar');
+
+  if(!cards.length){
+    list.innerHTML=`<div class="empty"><div class="empty-icon">💳</div><div class="empty-title">No cards yet</div><div class="empty-sub">Tap + to add your<br/>first credit card</div></div>`;
+    bar.style.display='none'; return;
   }
 
-  async function saveCards(data) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('kv', 'readwrite');
-      tx.objectStore('kv').put(data, 'cards');
-      tx.oncomplete = res;
-      tx.onerror = rej;
-    });
-  }
+  // Summary
+  bar.style.display='grid';
+  const unpaidCards=cards.filter(c=>!isPaid(c));
+  const totalDue=unpaidCards.reduce((s,c)=>s+(Number(c.balance)||0),0);
+  const cur=cards[0]?.currency||'RM';
+  document.getElementById('sumDue').textContent=totalDue>0?`${cur} ${totalDue.toLocaleString()}`:'—';
+  document.getElementById('sumPaid').textContent=`${cards.filter(isPaid).length}/${cards.length}`;
 
-  async function loadCards() {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('kv', 'readonly');
-      const req = tx.objectStore('kv').get('cards');
-      req.onsuccess = () => res(req.result || []);
-      req.onerror = rej;
-    });
-  }
-  let editingId = null;
-  let viewingId = null;
-  let selectedEmoji = EMOJIS[0];
+  const sorted=[...cards].sort((a,b)=>daysUntil(a.day)-daysUntil(b.day));
+  list.innerHTML='';
 
-  function save() {
-    saveCards(cards).catch(console.error);
-    // Tell SW to check reminders after any save
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_REMINDERS' });
-    }
-  }
+  const groups=[
+    {key:'overdue',   label:'OVERDUE'},
+    {key:'due-soon',  label:'DUE SOON'},
+    {key:'this-week', label:'THIS WEEK'},
+    {key:'upcoming',  label:'UPCOMING'},
+    {key:'paid',      label:'PAID THIS MONTH'},
+  ];
 
-  function getDaysUntilDue(dayOfMonth) {
-    const today = new Date();
-    const thisMonth = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
-    let target = thisMonth >= today ? thisMonth : nextMonth;
-    const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
-    return diff;
-  }
+  groups.forEach(({key,label})=>{
+    const grp=sorted.filter(c=>getStatus(c)===key);
+    if(!grp.length) return;
+    list.innerHTML+=`<div class="section-title">${label}</div>`;
+    grp.forEach(c=>{
+      const st=getStatus(c), paid=isPaid(c);
+      const num=c.last4?`•••• •••• •••• ${c.last4}`:'•••• •••• •••• ••••';
+      const balStr=c.balance?`${c.currency} ${Number(c.balance).toLocaleString()}`:'—';
+      const minStr=c.minPayment?`MIN. ${c.currency} ${Number(c.minPayment).toLocaleString()}`:'';
+      const dl=daysLabel(c);
 
-  function getDueDate(dayOfMonth) {
-    const today = new Date();
-    const thisMonth = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
-    const target = thisMonth >= today ? thisMonth : nextMonth;
-    return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-
-  function getCurrentCycleKey(dayOfMonth) {
-    // Each card's "cycle" starts on its due day each month.
-    // If today is before the due day, the cycle belongs to last month.
-    // e.g. due day 15: cycle key is "2026-05" if today >= 15th, else "2026-04"
-    const today = new Date();
-    const d = today.getDate();
-    const m = today.getMonth();
-    const y = today.getFullYear();
-    if (d >= dayOfMonth) {
-      return `${y}-${String(m + 1).padStart(2, '0')}`;
-    } else {
-      const prevMonth = m === 0 ? 11 : m - 1;
-      const prevYear  = m === 0 ? y - 1 : y;
-      return `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`;
-    }
-  }
-
-  function isPaidThisCycle(card) {
-    if (!card.paidCycle) return false;
-    return card.paidCycle === getCurrentCycleKey(card.day);
-  }
-
-  function getStatus(card) {
-    if (isPaidThisCycle(card)) return 'paid';
-    const days = getDaysUntilDue(card.day);
-    if (days <= 3) return 'urgent';
-    if (days <= 7) return 'soon';
-    return 'ok';
-  }
-
-  function render() {
-    const content = document.getElementById('content');
-    const summary = document.getElementById('summary');
-
-    if (cards.length === 0) {
-      content.innerHTML = `<div class="empty">
-        <div class="empty-icon">💳</div>
-        <div class="empty-title">No cards yet</div>
-        <div class="empty-sub">Tap <strong>+</strong> to add your first<br/>credit card payment reminder</div>
-      </div>`;
-      summary.innerHTML = '';
-      return;
-    }
-
-    const sorted = [...cards].sort((a,b) => getDaysUntilDue(a.day) - getDaysUntilDue(b.day));
-    const urgent = sorted.filter(c => getStatus(c) === 'urgent').length;
-    const unpaid = sorted.filter(c => getStatus(c) !== 'paid').length;
-    const totalDue = sorted.filter(c => getStatus(c) !== 'paid').reduce((s,c) => s + (Number(c.amount)||0), 0);
-    const currency = sorted[0]?.currency || '$';
-
-    summary.innerHTML = `
-      <div class="summary-chip ${urgent>0?'urgent':''}"><b>${urgent}</b> urgent</div>
-      <div class="summary-chip"><b>${unpaid}</b> unpaid</div>
-      <div class="summary-chip"><b>${currency}${totalDue.toLocaleString()}</b> due</div>
-      <div class="summary-chip"><b>${cards.length}</b> cards</div>
-    `;
-
-    content.innerHTML = '';
-
-    const urgentCards = sorted.filter(c => getStatus(c) === 'urgent');
-    const soonCards = sorted.filter(c => getStatus(c) === 'soon');
-    const okCards = sorted.filter(c => getStatus(c) === 'ok');
-    const paidCards = sorted.filter(c => getStatus(c) === 'paid');
-
-    function renderGroup(label, list) {
-      if (!list.length) return;
-      content.innerHTML += `<div class="section-label">${label}</div>`;
-      list.forEach(card => {
-        const status = getStatus(card);
-        const days = getDaysUntilDue(card.day);
-        const daysLabel = status === 'paid' ? '✓' : (days === 0 ? 'TODAY' : `${days}`);
-        const daysClass = status === 'paid' ? 'paid' : (status === 'urgent' ? 'urgent' : status === 'soon' ? 'soon' : 'ok');
-        content.innerHTML += `
-          <div class="card-item ${status}" onclick="openDetail('${card.id}')">
-            <div class="card-color-dot" style="background:${card.color}22;">${card.emoji}</div>
-            <div class="card-info">
-              <div class="card-name">${card.name}</div>
-              <div class="card-meta">
-                <span>${card.currency}${Number(card.amount).toLocaleString()} due</span>
-                <span>·</span>
-                <span>Day ${card.day}</span>
+      list.innerHTML+=`
+        <div class="cc-tile c${c.colorIdx||0} ${paid?'paid-tile':''}">
+          <div class="cc-top-section">
+            <div class="deco1"></div><div class="deco2"></div>
+            <div class="cc-header-row">
+              <div>
+                <div class="cc-label">CREDIT CARD</div>
+                <div class="cc-name">${c.name}</div>
+              </div>
+              <div class="chip-wrap">
+                <svg width="38" height="29" viewBox="0 0 38 29" fill="none">
+                  <rect x=".5" y=".5" width="37" height="28" rx="4" fill="#c8a96e" stroke="#a07840"/>
+                  <line x1="0" y1="10" x2="38" y2="10" stroke="#a07840" stroke-width=".9"/>
+                  <line x1="0" y1="19" x2="38" y2="19" stroke="#a07840" stroke-width=".9"/>
+                  <line x1="13" y1="0" x2="13" y2="29" stroke="#a07840" stroke-width=".9"/>
+                  <line x1="25" y1="0" x2="25" y2="29" stroke="#a07840" stroke-width=".9"/>
+                </svg>
               </div>
             </div>
-            <div class="card-due">
-              <div class="due-days ${daysClass}">${daysLabel}</div>
-              <div class="due-label">${status==='paid'?'paid':days===0?'due today':'days left'}</div>
+            <div class="cc-number">${num}</div>
+            <div class="cc-meta-row">
+              <div class="cc-balance-block">
+                <div class="cc-bal-label">BALANCE</div>
+                <div class="cc-bal-amt">${balStr}</div>
+                ${minStr?`<div class="cc-min">${minStr}</div>`:''}
+              </div>
+              <div class="cc-days-block">
+                <div class="cc-days-num ${st}">${dl}</div>
+                <div class="cc-due-on">DUE ${dueDateStr(c.day).toUpperCase()}</div>
+              </div>
             </div>
-          </div>`;
-      });
-    }
-
-    if (urgentCards.length) renderGroup('🔴 Due Soon', urgentCards);
-    if (soonCards.length) renderGroup('🟡 This Week', soonCards);
-    if (okCards.length) renderGroup('🟢 Upcoming', okCards);
-    if (paidCards.length) renderGroup('✓ Paid This Cycle', paidCards);
-  }
-
-  function openAddModal() {
-    editingId = null;
-    selectedEmoji = EMOJIS[0];
-    document.getElementById('modalTitle').textContent = 'Add Card';
-    document.getElementById('f-name').value = '';
-    document.getElementById('f-day').value = '';
-    document.getElementById('f-amount').value = '';
-    document.getElementById('f-currency').value = '$';
-    renderEmojiPicker();
-    document.getElementById('addModal').classList.add('open');
-  }
-
-  function renderEmojiPicker() {
-    document.getElementById('emojiPicker').innerHTML = EMOJIS.map(e =>
-      `<div class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji('${e}')">${e}</div>`
-    ).join('');
-  }
-
-  function selectEmoji(e) {
-    selectedEmoji = e;
-    renderEmojiPicker();
-  }
-
-  function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
-  }
-
-  function handleOverlayClick(e, id) {
-    if (e.target === e.currentTarget) closeModal(id);
-  }
-
-  function saveCard() {
-    const name = document.getElementById('f-name').value.trim();
-    const day = parseInt(document.getElementById('f-day').value);
-    const amount = document.getElementById('f-amount').value;
-    const currency = document.getElementById('f-currency').value;
-
-    if (!name || !day || day < 1 || day > 31) {
-      alert('Please enter a valid card name and due day (1-31).');
-      return;
-    }
-
-    if (editingId) {
-      const idx = cards.findIndex(c => c.id === editingId);
-      if (idx !== -1) {
-        cards[idx] = { ...cards[idx], name, day, amount, currency, emoji: selectedEmoji };
-      }
-    } else {
-      cards.push({
-        id: Date.now().toString(),
-        name, day, amount, currency,
-        emoji: selectedEmoji,
-        color: COLORS[cards.length % COLORS.length],
-        paidCycle: null
-      });
-    }
-
-    save();
-    render();
-    closeModal('addModal');
-    scheduleNotifications();
-  }
-
-  function openDetail(id) {
-    viewingId = id;
-    const card = cards.find(c => c.id === id);
-    if (!card) return;
-
-    const status = getStatus(card);
-    const days = getDaysUntilDue(card.day);
-
-    document.getElementById('d-icon').textContent = card.emoji;
-    document.getElementById('d-name').textContent = card.name;
-    document.getElementById('d-amount').textContent = `${card.currency}${Number(card.amount).toLocaleString()}`;
-    document.getElementById('d-duedate').textContent = getDueDate(card.day);
-
-    const dlEl = document.getElementById('d-daysleft');
-    dlEl.textContent = status === 'paid' ? 'Paid ✓' : (days === 0 ? 'Today!' : `${days} days`);
-    dlEl.className = 'detail-cell-val ' + (status==='urgent'?'urgent':status==='soon'?'warn':status==='paid'?'':'ok');
-
-    const stEl = document.getElementById('d-status');
-    stEl.textContent = status === 'paid' ? '✓ Paid' : status === 'urgent' ? '⚠️ Urgent' : status === 'soon' ? '⏳ Soon' : '✅ On Track';
-    stEl.className = 'detail-cell-val ' + (status==='urgent'?'urgent':status==='soon'?'warn':status==='paid'?'':'ok');
-
-    document.getElementById('d-next').textContent = getDueDate(card.day);
-
-    const btn = document.getElementById('d-markpaid');
-    btn.textContent = status === 'paid' ? 'Mark Unpaid' : 'Mark Paid';
-
-    document.getElementById('detailModal').classList.add('open');
-  }
-
-  function togglePaid() {
-    const card = cards.find(c => c.id === viewingId);
-    if (!card) return;
-    if (isPaidThisCycle(card)) {
-      card.paidCycle = null;
-    } else {
-      card.paidCycle = getCurrentCycleKey(card.day);
-    }
-    save();
-    render();
-    closeModal('detailModal');
-  }
-
-  function editCard() {
-    const card = cards.find(c => c.id === viewingId);
-    if (!card) return;
-    closeModal('detailModal');
-    editingId = card.id;
-    selectedEmoji = card.emoji;
-    document.getElementById('modalTitle').textContent = 'Edit Card';
-    document.getElementById('f-name').value = card.name;
-    document.getElementById('f-day').value = card.day;
-    document.getElementById('f-amount').value = card.amount;
-    document.getElementById('f-currency').value = card.currency;
-    renderEmojiPicker();
-    document.getElementById('addModal').classList.add('open');
-  }
-
-  function deleteCard() {
-    if (!confirm('Delete this card?')) return;
-    cards = cards.filter(c => c.id !== viewingId);
-    save();
-    render();
-    closeModal('detailModal');
-  }
-
-  // NOTIFICATIONS
-  function checkNotifPermission() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'default' && cards.length > 0) {
-      document.getElementById('notifBanner').classList.add('show');
-    }
-  }
-
-  async function requestNotifications() {
-    const perm = await Notification.requestPermission();
-    document.getElementById('notifBanner').classList.remove('show');
-    if (perm === 'granted') scheduleNotifications();
-  }
-
-  async function scheduleNotifications() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-    // Register periodic background sync (fires ~daily even when app is closed)
-    if ('periodicSync' in navigator.serviceWorker) {
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.periodicSync.register('daily-reminder', { minInterval: 24 * 60 * 60 * 1000 });
-      } catch (e) { /* periodicSync not supported, fallback below */ }
-    }
-
-    // Fallback: ask SW to fire reminders right now
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_REMINDERS' });
-    }
-  }
-
-  // SERVICE WORKER
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-
-  // INIT — load cards from IndexedDB, then render
-  loadCards().then(stored => {
-    cards = stored;
-    render();
-    checkNotifPermission();
-    // Re-trigger reminders check on app open
-    if (Notification.permission === 'granted' && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_REMINDERS' });
-    }
-  }).catch(() => {
-    // Fallback to localStorage for old data migration
-    const old = localStorage.getItem('cc-cards');
-    if (old) {
-      try { cards = JSON.parse(old); saveCards(cards); localStorage.removeItem('cc-cards'); } catch {}
-    }
-    render();
-    checkNotifPermission();
+          </div>
+          <div class="cc-btn-row">
+            <button class="btn-ghost ${paid?'paid-btn':'mark-paid'}" onclick="togglePaid('${c.id}')">
+              ${paid?'↩ MARK UNPAID':'✓ MARK PAID'}
+            </button>
+            <button class="btn-ghost" onclick="openEdit('${c.id}')">EDIT</button>
+            <button class="btn-danger" onclick="deleteCard('${c.id}')">DELETE</button>
+          </div>
+        </div>`;
+    });
   });
+}
+
+// ── MARK PAID ──────────────────────────────────────────────────────────
+function togglePaid(id){
+  const c=cards.find(x=>x.id===id); if(!c) return;
+  if(!c.paidMonths) c.paidMonths=[];
+  const cm=currentMonth();
+  c.paidMonths=isPaid(c)?c.paidMonths.filter(m=>m!==cm):[...c.paidMonths,cm];
+  persist(); render();
+}
+
+// ── DELETE ─────────────────────────────────────────────────────────────
+function deleteCard(id){
+  if(!confirm('Delete this card?')) return;
+  cards=cards.filter(c=>c.id!==id);
+  persist(); render();
+}
+
+// ── ADD / EDIT ─────────────────────────────────────────────────────────
+function openAdd(){
+  editId=null; selColor=0;
+  document.getElementById('modalTitle').textContent='Add New Card';
+  ['name','last4','day','balance','minpay'].forEach(f=>document.getElementById('f-'+f).value='');
+  document.getElementById('f-currency').value='RM';
+  renderColors();
+  document.getElementById('addModal').classList.add('open');
+}
+function openEdit(id){
+  const c=cards.find(x=>x.id===id); if(!c) return;
+  editId=id; selColor=c.colorIdx||0;
+  document.getElementById('modalTitle').textContent='Edit Card';
+  document.getElementById('f-name').value=c.name;
+  document.getElementById('f-last4').value=c.last4||'';
+  document.getElementById('f-day').value=c.day;
+  document.getElementById('f-currency').value=c.currency||'RM';
+  document.getElementById('f-balance').value=c.balance||'';
+  document.getElementById('f-minpay').value=c.minPayment||'';
+  renderColors();
+  document.getElementById('addModal').classList.add('open');
+}
+function renderColors(){
+  document.getElementById('colorGrid').innerHTML=Array.from({length:6},(_,i)=>
+    `<div class="cswatch s${i} ${i===selColor?'sel':''}" onclick="pickColor(${i})"></div>`).join('');
+}
+function pickColor(i){selColor=i;renderColors();}
+
+function saveCard(){
+  const name=document.getElementById('f-name').value.trim();
+  const day=parseInt(document.getElementById('f-day').value);
+  if(!name||!day||day<1||day>31){alert('Enter card name and due day (1–31)');return;}
+  const patch={
+    name, last4:document.getElementById('f-last4').value.trim().slice(-4),
+    day, currency:document.getElementById('f-currency').value,
+    balance:document.getElementById('f-balance').value,
+    minPayment:document.getElementById('f-minpay').value,
+    colorIdx:selColor,
+  };
+  if(editId){
+    const i=cards.findIndex(c=>c.id===editId);
+    if(i!==-1) cards[i]={...cards[i],...patch};
+  } else {
+    cards.push({id:Date.now().toString(),...patch,paidMonths:[]});
+  }
+  persist(); render(); closeModal();
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────
+function closeModal(){document.getElementById('addModal').classList.remove('open');}
+function bgClose(e,id){if(e.target===e.currentTarget)closeModal();}
+
+// ── Notifications ──────────────────────────────────────────────────────
+function checkNotif(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default'&&cards.length>0)
+    document.getElementById('notifBanner').classList.add('show');
+}
+async function requestNotif(){
+  const p=await Notification.requestPermission();
+  document.getElementById('notifBanner').classList.remove('show');
+  if(p==='granted'){try{const r=await navigator.serviceWorker.ready;await r.periodicSync.register('daily-reminder',{minInterval:86400000});}catch{} navigator.serviceWorker?.controller?.postMessage({type:'CHECK_REMINDERS'});}
+}
+
+// ── SW & Init ──────────────────────────────────────────────────────────
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+loadCards().then(d=>{cards=d;render();checkNotif();}).catch(()=>{render();checkNotif();});
 </script>
 </body>
 </html>
