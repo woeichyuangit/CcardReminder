@@ -1,18 +1,22 @@
-const CACHE = 'cardremind-v2';
+const CACHE = 'cardremind-v3';
+const BASE = '/CcardReminder';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap'
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/manifest.json',
+  BASE + '/icon-192.png',
+  BASE + '/icon-512.png',
 ];
-
+ 
 // ── Install & cache ──────────────────────────────────────────────────────────
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => c.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
-
+ 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -20,15 +24,17 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim())
   );
 });
-
+ 
 // ── Fetch (offline support) ──────────────────────────────────────────────────
 self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request)
-      .then(cached => cached || fetch(e.request).catch(() => caches.match('/index.html')))
+      .then(cached => cached || fetch(e.request)
+        .catch(() => caches.match(BASE + '/index.html'))
+      )
   );
 });
-
+ 
 // ── Notification click → open app ───────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
@@ -37,41 +43,31 @@ self.addEventListener('notificationclick', e => {
       for (const client of list) {
         if ('focus' in client) return client.focus();
       }
-      return clients.openWindow('/');
+      return clients.openWindow(BASE + '/');
     })
   );
 });
-
-// ── Periodic background sync (fires ~daily when supported) ──────────────────
+ 
+// ── Periodic background sync ─────────────────────────────────────────────────
 self.addEventListener('periodicsync', e => {
   if (e.tag === 'daily-reminder') {
     e.waitUntil(sendDailyReminders());
   }
 });
-
-// ── Message from page: schedule or fire reminders now ───────────────────────
+ 
+// ── Message from page ────────────────────────────────────────────────────────
 self.addEventListener('message', e => {
-  if (e.data?.type === 'CHECK_REMINDERS') {
-    sendDailyReminders();
-  }
-  if (e.data?.type === 'SCHEDULE_ALARM') {
-    // Store next alarm time in SW scope
-    self.__nextAlarm = e.data.time;
-  }
+  if (e.data?.type === 'CHECK_REMINDERS') sendDailyReminders();
 });
-
+ 
 // ── Core reminder logic ──────────────────────────────────────────────────────
 async function sendDailyReminders() {
-  // Read cards from IndexedDB (shared with main page via idb-keyval pattern)
   let cards = [];
-  try {
-    cards = await getCards();
-  } catch { return; }
-
+  try { cards = await getCards(); } catch { return; }
   if (!cards.length) return;
-
+ 
   const today = new Date();
-
+ 
   function getCurrentCycleKey(dayOfMonth) {
     const d = today.getDate(), m = today.getMonth(), y = today.getFullYear();
     if (d >= dayOfMonth) return `${y}-${String(m + 1).padStart(2, '0')}`;
@@ -79,44 +75,39 @@ async function sendDailyReminders() {
     const py = m === 0 ? y - 1 : y;
     return `${py}-${String(pm + 1).padStart(2, '0')}`;
   }
-
+ 
   function isPaid(card) {
     return card.paidCycle && card.paidCycle === getCurrentCycleKey(card.day);
   }
-
+ 
   function daysUntil(dayOfMonth) {
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
     const target = thisMonth >= today ? thisMonth : nextMonth;
     return Math.ceil((target - today) / 86400000);
   }
-
+ 
   function dueDate(dayOfMonth) {
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
     const t = thisMonth >= today ? thisMonth : nextMonth;
     return t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
-
+ 
   const unpaid = cards.filter(c => !isPaid(c));
   if (!unpaid.length) return;
-
-  // Group notifications: urgent (≤3 days), soon (≤7 days), others
+ 
   const urgent = unpaid.filter(c => daysUntil(c.day) <= 3);
   const soon   = unpaid.filter(c => daysUntil(c.day) > 3 && daysUntil(c.day) <= 7);
-
-  // Fire one grouped notification if multiple urgent
+ 
   if (urgent.length > 1) {
     const names = urgent.map(c => c.name).join(', ');
     const total = urgent.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-    const currency = urgent[0].currency;
     await self.registration.showNotification('💳 Payments Due Very Soon!', {
-      body: `${names}\nTotal: ${currency} ${total.toLocaleString()} — pay now to avoid late fees`,
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
+      body: `${names}\nTotal: ${urgent[0].currency} ${total.toLocaleString()}`,
+      icon: BASE + '/icon-192.png',
       tag: 'urgent-group',
       requireInteraction: true,
-      actions: [{ action: 'open', title: 'View Cards' }]
     });
   } else if (urgent.length === 1) {
     const c = urgent[0];
@@ -124,40 +115,33 @@ async function sendDailyReminders() {
     await self.registration.showNotification(
       days === 0 ? `🚨 ${c.name} is due TODAY!` : `⚠️ ${c.name} due in ${days} day${days > 1 ? 's' : ''}`,
       {
-        body: `Minimum payment: ${c.currency} ${Number(c.amount).toLocaleString()} — due ${dueDate(c.day)}`,
-        icon: 'icon-192.png',
-        badge: 'icon-192.png',
+        body: `Minimum: ${c.currency} ${Number(c.amount).toLocaleString()} — due ${dueDate(c.day)}`,
+        icon: BASE + '/icon-192.png',
         tag: `urgent-${c.id}`,
         requireInteraction: true,
-        actions: [{ action: 'open', title: 'Mark as Paid' }]
       }
     );
   }
-
-  // One summary for "soon" cards
+ 
   if (soon.length) {
     const names = soon.map(c => `${c.name} (${daysUntil(c.day)}d)`).join(', ');
     await self.registration.showNotification('📅 Upcoming Payments This Week', {
       body: names,
-      icon: 'icon-192.png',
+      icon: BASE + '/icon-192.png',
       tag: 'soon-group'
     });
   }
 }
-
-// ── Read cards from localStorage via client message ──────────────────────────
-// Since SW can't access localStorage directly, we use a simple IDB store
+ 
+// ── Read cards from IndexedDB ─────────────────────────────────────────────────
 function getCards() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('cardremind-db', 1);
-    req.onupgradeneeded = e => {
-      e.target.result.createObjectStore('kv');
-    };
+    req.onupgradeneeded = e => e.target.result.createObjectStore('kv');
     req.onsuccess = e => {
       const db = e.target.result;
       const tx = db.transaction('kv', 'readonly');
-      const store = tx.objectStore('kv');
-      const get = store.get('cards');
+      const get = tx.objectStore('kv').get('cards');
       get.onsuccess = () => resolve(get.result || []);
       get.onerror = () => reject();
     };
