@@ -112,8 +112,8 @@ async function sendDailyReminders() {
     const currency = urgent[0].currency;
     await self.registration.showNotification('💳 Payments Due Very Soon!', {
       body: `${names}\nTotal: ${currency} ${total.toLocaleString()} — pay now to avoid late fees`,
-      icon: 'icons/icon-192.png',
-      badge: 'icons/icon-192.png',
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
       tag: 'urgent-group',
       requireInteraction: true,
       actions: [{ action: 'open', title: 'View Cards' }]
@@ -125,8 +125,8 @@ async function sendDailyReminders() {
       days === 0 ? `🚨 ${c.name} is due TODAY!` : `⚠️ ${c.name} due in ${days} day${days > 1 ? 's' : ''}`,
       {
         body: `Minimum payment: ${c.currency} ${Number(c.amount).toLocaleString()} — due ${dueDate(c.day)}`,
-        icon: 'icons/icon-192.png',
-        badge: 'icons/icon-192.png',
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
         tag: `urgent-${c.id}`,
         requireInteraction: true,
         actions: [{ action: 'open', title: 'Mark as Paid' }]
@@ -139,7 +139,7 @@ async function sendDailyReminders() {
     const names = soon.map(c => `${c.name} (${daysUntil(c.day)}d)`).join(', ');
     await self.registration.showNotification('📅 Upcoming Payments This Week', {
       body: names,
-      icon: 'icons/icon-192.png',
+      icon: 'icon-192.png',
       tag: 'soon-group'
     });
   }
