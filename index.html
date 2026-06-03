@@ -471,6 +471,9 @@ let uid = null, unsubscribe = null;
 
 const $ = id => document.getElementById(id);
 
+// Declare chart vars at top — must exist before applyTheme() runs
+let donutChart = null, barChart = null;
+
 // ── THEME ──────────────────────────────────────────────────────────────────
 let isDark = localStorage.getItem('theme') !== 'light';
 function applyTheme() {
@@ -601,7 +604,6 @@ function getUtilPct(card) {
 function utilClass(pct) { return pct<30?'low':pct<70?'mid':'high'; }
 
 // ── DONUT CHART ────────────────────────────────────────────────────────────
-let donutChart=null;
 const STATUS_COLORS={urgent:'#f56464',soon:'#f5c864',ok:'#c8f564',paid:'#2a2a3a'};
 
 function renderDonut() {
@@ -735,7 +737,6 @@ function renderCalendar() {
 }
 
 // ── ANALYTICS ──────────────────────────────────────────────────────────────
-let barChart=null;
 function renderAnalytics() {
   if(!cards.length) {
     $('statGrid').innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:20px;font-size:13px;">Add cards to see analytics</div>`;
