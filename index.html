@@ -532,7 +532,7 @@ import { initializeApp }
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
          getRedirectResult, signOut as fbSignOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, doc, setDoc, onSnapshot }
+import { initializeFirestore, memoryLocalCache, doc, setDoc, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -547,7 +547,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
 const provider    = new GoogleAuthProvider();
-const db          = initializeFirestore(firebaseApp, { localCache: persistentLocalCache() });
+const db = initializeFirestore(firebaseApp, { localCache: memoryLocalCache() });
 let uid = null, unsubscribe = null;
 
 const $ = id => document.getElementById(id);
@@ -614,19 +614,22 @@ $('signOutBtn').addEventListener('click', async () => {
   if(unsubscribe){unsubscribe();unsubscribe=null;}
   await fbSignOut(auth);
 });
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 $('googleSignInBtn').addEventListener('click', async () => {
   try {
-    // Popup works on desktop; on mobile it often gets blocked
-    await signInWithPopup(auth, provider);
+    if (isMobile) {
+      // Redirect is far more reliable than popup on mobile browsers
+      await signInWithRedirect(auth, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
   } catch (err) {
-    if (err.code === 'auth/popup-blocked' ||
-        err.code === 'auth/popup-closed-by-user' ||
-        err.code === 'auth/cancelled-popup-request') {
-      // Fall back to redirect flow (works reliably on all mobile browsers)
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
       await signInWithRedirect(auth, provider);
     } else {
       console.error('Sign-in error:', err);
-      alert('Sign-in failed. Please try again.');
+      alert('Sign-in failed: ' + (err.code || err.message));
     }
   }
 });
@@ -1164,26 +1167,16 @@ onAuthStateChanged(auth, user=>{
   if(unsubscribe) unsubscribe();
   unsubscribe = onSnapshot(
     doc(db,'users',uid),
-    { includeMetadataChanges: true },
     async snap => {
-      const fromCache = snap.metadata.fromCache;
-
       if (snap.exists()) {
         cards = snap.data().cards || [];
-        // Show syncing indicator while still waiting on server confirmation
-        setSyncStatus(fromCache ? 'connecting' : 'synced');
-      } else if (fromCache) {
-        // Empty cache hit — server hasn't responded yet, keep showing loader
-        setSyncStatus('connecting');
-        return;
+        setSyncStatus('synced');
       } else {
-        // Genuine server response: document truly doesn't exist yet
-        // Safe to migrate from IndexedDB (first-time use on this account)
+        // Document doesn't exist yet — migrate from IndexedDB if first-time user
         const l = await loadFromIndexedDB();
         if (l && l.length) { cards = l; await saveCards(cards); }
         else { cards = []; setSyncStatus('synced'); }
       }
-
       mirrorToIndexedDB(cards); render(); checkNotifPermission();
       if (Notification.permission==='granted' && navigator.serviceWorker.controller)
         navigator.serviceWorker.controller.postMessage({type:'CHECK_REMINDERS'});
@@ -1197,9 +1190,8 @@ onAuthStateChanged(auth, user=>{
           <div class="empty-icon">⚠️</div>
           <div class="empty-title">Couldn't load cards</div>
           <div class="empty-sub" style="color:var(--danger);margin-bottom:16px;">${err.code||err.message}</div>
-          <div class="empty-sub">Check your Firestore security rules in Firebase Console, then reload the page.</div>
+          <div class="empty-sub">Check Firestore rules in Firebase Console, then reload.</div>
         </div>`;
-      loadFromIndexedDB().then(s => { if(s&&s.length){ cards=s; render(); } });
     }
   );
 });
