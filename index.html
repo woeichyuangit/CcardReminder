@@ -255,6 +255,12 @@ select.form-input { appearance:none; -webkit-appearance:none; }
 </head>
 <body>
 
+<!-- LOADING SCREEN (shown on first load and while processing redirect) -->
+<div id="loadingScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;gap:16px;">
+  <div style="font-family:'DM Serif Display',serif;font-size:40px;letter-spacing:-0.5px;color:var(--text);">Card<span style="color:var(--accent);font-style:italic;">Remind</span></div>
+  <div style="color:var(--muted);font-size:13px;">Loading…</div>
+</div>
+
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
   <div class="login-logo">Card<span>Remind</span></div>
@@ -606,18 +612,30 @@ function dbg(msg) {
   if (el) el.innerHTML = debugLog.slice(-15).map(l=>`<div>${l}</div>`).join('');
   console.log('[DBG]', msg);
 }
-function showLogin() { $('loginScreen').classList.add('show'); $('appShell').style.display='none'; $('accountBar').style.display='none'; }
+let redirectChecked = false;
+
+function showLoading() {
+  $('loadingScreen').style.display='flex';
+  $('loginScreen').classList.remove('show');
+  $('appShell').style.display='none';
+}
+function showLogin() {
+  $('loadingScreen').style.display='none';
+  $('loginScreen').classList.add('show');
+  $('appShell').style.display='none';
+  $('accountBar').style.display='none';
+}
 function showApp(user) {
+  $('loadingScreen').style.display='none';
   $('loginScreen').classList.remove('show');
   $('appShell').style.display='block';
-  const av = $('userAvatar');
-  if (user.photoURL) av.innerHTML=`<img src="${user.photoURL}" referrerpolicy="no-referrer"/>`;
+  const av=$('userAvatar');
+  if(user.photoURL) av.innerHTML=`<img src="${user.photoURL}" referrerpolicy="no-referrer"/>`;
   else $('userInitial').textContent=(user.displayName||user.email||'?')[0].toUpperCase();
   $('menuUserName').textContent  = user.displayName||'Google user';
   $('menuUserEmail').textContent = user.email||'';
-  // Show account bar — makes it easy to verify same account across devices
-  $('accountEmail').textContent = user.email||user.displayName||'unknown';
-  $('accountBar').style.display = 'flex';
+  $('accountEmail').textContent  = user.email||user.displayName||'unknown';
+  $('accountBar').style.display  = 'flex';
 }
 function setSyncStatus(s) {
   const dot=$('syncDot'); if(!dot) return;
@@ -1181,13 +1199,39 @@ async function scheduleNotifications(){
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 // ── FIREBASE AUTH ──────────────────────────────────────────────────────────
+// Process redirect result first. On mobile, after Google redirects back,
+// Firebase needs a moment to restore auth state. During that time
+// onAuthStateChanged fires with null — without this guard we'd flash
+// the login screen and the user would tap sign-in again, creating a loop.
+getRedirectResult(auth)
+  .then(r => dbg(r?.user ? `REDIRECT OK: ${r.user.email}` : 'REDIRECT: none'))
+  .catch(e => dbg(`REDIRECT ERR: ${e.code}`))
+  .finally(() => {
+    redirectChecked = true;
+    dbg('REDIRECT: checked');
+    if (!uid) showLogin();
+  });
+
+// Safety net — if getRedirectResult hangs (e.g. network issue), show login after 5s
+setTimeout(() => {
+  if (!redirectChecked) {
+    redirectChecked = true;
+    dbg('REDIRECT: timeout fallback');
+    if (!uid) showLogin();
+  }
+}, 5000);
+
 onAuthStateChanged(auth, user=>{
   if(!user){
     dbg('AUTH: no user');
+    uid=null;
     if(unsubscribe){unsubscribe();unsubscribe=null;}
-    uid=null; showLogin(); return;
+    // Only show login after redirect result is confirmed — prevents the loop
+    if(redirectChecked) showLogin();
+    return;
   }
   dbg(`AUTH: uid=${user.uid.slice(0,8)} email=${user.email}`);
+  redirectChecked=true;
   uid=user.uid; showApp(user); setSyncStatus('connecting');
   if(unsubscribe) unsubscribe();
 
@@ -1196,26 +1240,26 @@ onAuthStateChanged(auth, user=>{
     doc(db,'users',uid),
     async snap => {
       dbg(`SNAP: exists=${snap.exists()}`);
-      if (snap.exists()) {
-        cards = snap.data().cards || [];
+      if(snap.exists()){
+        cards=snap.data().cards||[];
         dbg(`SNAP: got ${cards.length} card(s)`);
         setSyncStatus('synced');
       } else {
-        dbg('SNAP: no document, checking IndexedDB...');
-        const l = await loadFromIndexedDB();
+        dbg('SNAP: no doc — checking IndexedDB');
+        const l=await loadFromIndexedDB();
         dbg(`IDB: ${l?.length||0} card(s)`);
-        if (l && l.length) { cards = l; await saveCards(cards); }
-        else { cards = []; setSyncStatus('synced'); }
+        if(l&&l.length){cards=l;await saveCards(cards);}
+        else{cards=[];setSyncStatus('synced');}
       }
       mirrorToIndexedDB(cards); render(); checkNotifPermission();
-      if (Notification.permission==='granted' && navigator.serviceWorker.controller)
+      if(Notification.permission==='granted'&&navigator.serviceWorker.controller)
         navigator.serviceWorker.controller.postMessage({type:'CHECK_REMINDERS'});
     },
-    err => {
+    err=>{
       dbg(`SNAP ERROR: ${err.code} ${err.message}`);
       setSyncStatus('offline');
-      const content=$('content');
-      if(content) content.innerHTML=`
+      const c=$('content');
+      if(c) c.innerHTML=`
         <div class="empty">
           <div class="empty-icon">⚠️</div>
           <div class="empty-title">Couldn't load cards</div>
