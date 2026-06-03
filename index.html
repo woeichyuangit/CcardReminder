@@ -313,7 +313,12 @@ select.form-input { appearance:none; -webkit-appearance:none; }
     <span id="syncStatus2" style="font-size:10px;"></span>
   </div>
 
-  <!-- ── CARDS TAB ──────────────────────────────────────────────────────── -->
+  <!-- Debug panel — tap 5× on the title to show -->
+  <div id="debugPanel" style="display:none;margin:8px 24px;padding:12px;background:#1a0a0a;border:1px solid #f56464;border-radius:10px;font-size:11px;font-family:monospace;color:#f0f0f5;line-height:1.8;word-break:break-all;">
+    <div style="color:#f5c864;margin-bottom:6px;font-weight:bold;">Debug Info</div>
+    <div id="debugContent"></div>
+    <button onclick="document.getElementById('debugPanel').style.display='none'" style="margin-top:8px;background:#333;border:none;color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;">Close</button>
+  </div>
   <div class="tab-panel active" id="panel-cards">
     <div class="metric-grid" id="summary"></div>
 
@@ -585,7 +590,22 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
-// ── SIGN-OUT / AVATAR ──────────────────────────────────────────────────────
+// ── DEBUG PANEL ────────────────────────────────────────────────────────────
+let tapCount = 0, tapTimer;
+document.querySelector('.app-title').addEventListener('click', () => {
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => tapCount = 0, 2000);
+  if (tapCount >= 5) { tapCount = 0; document.getElementById('debugPanel').style.display = 'block'; }
+});
+const debugLog = [];
+function dbg(msg) {
+  const t = new Date().toLocaleTimeString();
+  debugLog.push(`[${t}] ${msg}`);
+  const el = document.getElementById('debugContent');
+  if (el) el.innerHTML = debugLog.slice(-15).map(l=>`<div>${l}</div>`).join('');
+  console.log('[DBG]', msg);
+}
 function showLogin() { $('loginScreen').classList.add('show'); $('appShell').style.display='none'; $('accountBar').style.display='none'; }
 function showApp(user) {
   $('loginScreen').classList.remove('show');
@@ -1162,18 +1182,28 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 
 // ── FIREBASE AUTH ──────────────────────────────────────────────────────────
 onAuthStateChanged(auth, user=>{
-  if(!user){if(unsubscribe){unsubscribe();unsubscribe=null;}uid=null;showLogin();return;}
+  if(!user){
+    dbg('AUTH: no user');
+    if(unsubscribe){unsubscribe();unsubscribe=null;}
+    uid=null; showLogin(); return;
+  }
+  dbg(`AUTH: uid=${user.uid.slice(0,8)} email=${user.email}`);
   uid=user.uid; showApp(user); setSyncStatus('connecting');
   if(unsubscribe) unsubscribe();
+
+  dbg('FIRESTORE: subscribing...');
   unsubscribe = onSnapshot(
     doc(db,'users',uid),
     async snap => {
+      dbg(`SNAP: exists=${snap.exists()}`);
       if (snap.exists()) {
         cards = snap.data().cards || [];
+        dbg(`SNAP: got ${cards.length} card(s)`);
         setSyncStatus('synced');
       } else {
-        // Document doesn't exist yet — migrate from IndexedDB if first-time user
+        dbg('SNAP: no document, checking IndexedDB...');
         const l = await loadFromIndexedDB();
+        dbg(`IDB: ${l?.length||0} card(s)`);
         if (l && l.length) { cards = l; await saveCards(cards); }
         else { cards = []; setSyncStatus('synced'); }
       }
@@ -1182,7 +1212,7 @@ onAuthStateChanged(auth, user=>{
         navigator.serviceWorker.controller.postMessage({type:'CHECK_REMINDERS'});
     },
     err => {
-      console.error('Firestore error:', err.code, err.message);
+      dbg(`SNAP ERROR: ${err.code} ${err.message}`);
       setSyncStatus('offline');
       const content=$('content');
       if(content) content.innerHTML=`
