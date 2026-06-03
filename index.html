@@ -306,6 +306,13 @@ select.form-input { appearance:none; -webkit-appearance:none; }
     <button id="enableNotifBtn">Enable</button>
   </div>
 
+  <!-- Signed-in account indicator -->
+  <div id="accountBar" style="margin:8px 24px 0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:none;align-items:center;gap:8px;font-size:11px;color:var(--muted);">
+    <span>Signed in as</span>
+    <span id="accountEmail" style="color:var(--text);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span id="syncStatus2" style="font-size:10px;"></span>
+  </div>
+
   <!-- ── CARDS TAB ──────────────────────────────────────────────────────── -->
   <div class="tab-panel active" id="panel-cards">
     <div class="metric-grid" id="summary"></div>
@@ -522,7 +529,8 @@ select.form-input { appearance:none; -webkit-appearance:none; }
 <script type="module">
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+         getRedirectResult, signOut as fbSignOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, doc, setDoc, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -578,7 +586,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 });
 
 // ── SIGN-OUT / AVATAR ──────────────────────────────────────────────────────
-function showLogin() { $('loginScreen').classList.add('show'); $('appShell').style.display='none'; }
+function showLogin() { $('loginScreen').classList.add('show'); $('appShell').style.display='none'; $('accountBar').style.display='none'; }
 function showApp(user) {
   $('loginScreen').classList.remove('show');
   $('appShell').style.display='block';
@@ -587,11 +595,17 @@ function showApp(user) {
   else $('userInitial').textContent=(user.displayName||user.email||'?')[0].toUpperCase();
   $('menuUserName').textContent  = user.displayName||'Google user';
   $('menuUserEmail').textContent = user.email||'';
+  // Show account bar — makes it easy to verify same account across devices
+  $('accountEmail').textContent = user.email||user.displayName||'unknown';
+  $('accountBar').style.display = 'flex';
 }
 function setSyncStatus(s) {
   const dot=$('syncDot'); if(!dot) return;
   dot.className='sync-dot '+s;
-  dot.title={connecting:'Connecting…',synced:'Synced ✓',saving:'Saving…',offline:'Offline'}[s]||'';
+  const labels={connecting:'Connecting…',synced:'✓ Synced',saving:'Saving…',offline:'Offline'};
+  dot.title=labels[s]||'';
+  const s2=$('syncStatus2');
+  if(s2) { s2.textContent=labels[s]||''; s2.style.color=s==='synced'?'var(--accent)':s==='offline'?'var(--danger)':'var(--muted)'; }
 }
 $('userAvatar').addEventListener('click', () => $('signoutMenu').classList.add('open'));
 $('signoutBackdrop').addEventListener('click', () => $('signoutMenu').classList.remove('open'));
@@ -601,8 +615,25 @@ $('signOutBtn').addEventListener('click', async () => {
   await fbSignOut(auth);
 });
 $('googleSignInBtn').addEventListener('click', async () => {
-  try { await signInWithPopup(auth, provider); }
-  catch(e) { console.error(e); alert('Sign-in failed.'); }
+  try {
+    // Popup works on desktop; on mobile it often gets blocked
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    if (err.code === 'auth/popup-blocked' ||
+        err.code === 'auth/popup-closed-by-user' ||
+        err.code === 'auth/cancelled-popup-request') {
+      // Fall back to redirect flow (works reliably on all mobile browsers)
+      await signInWithRedirect(auth, provider);
+    } else {
+      console.error('Sign-in error:', err);
+      alert('Sign-in failed. Please try again.');
+    }
+  }
+});
+
+// Handle the redirect result when returning from Google on mobile
+getRedirectResult(auth).catch(err => {
+  if (err?.code !== 'auth/no-auth-event') console.error('Redirect result error:', err);
 });
 
 // ── INDEXEDDB MIRROR ───────────────────────────────────────────────────────
@@ -1131,13 +1162,46 @@ onAuthStateChanged(auth, user=>{
   if(!user){if(unsubscribe){unsubscribe();unsubscribe=null;}uid=null;showLogin();return;}
   uid=user.uid; showApp(user); setSyncStatus('connecting');
   if(unsubscribe) unsubscribe();
-  unsubscribe=onSnapshot(doc(db,'users',uid), async snap=>{
-    if(snap.exists()){cards=snap.data().cards||[];setSyncStatus('synced');}
-    else{const l=await loadFromIndexedDB();if(l&&l.length){cards=l;await saveCards(cards);}else{cards=[];setSyncStatus('synced');}}
-    mirrorToIndexedDB(cards); render(); checkNotifPermission();
-    if(Notification.permission==='granted'&&navigator.serviceWorker.controller)
-      navigator.serviceWorker.controller.postMessage({type:'CHECK_REMINDERS'});
-  }, err=>{setSyncStatus('offline');console.error(err);loadFromIndexedDB().then(s=>{cards=s;render();});});
+  unsubscribe = onSnapshot(
+    doc(db,'users',uid),
+    { includeMetadataChanges: true },
+    async snap => {
+      const fromCache = snap.metadata.fromCache;
+
+      if (snap.exists()) {
+        cards = snap.data().cards || [];
+        // Show syncing indicator while still waiting on server confirmation
+        setSyncStatus(fromCache ? 'connecting' : 'synced');
+      } else if (fromCache) {
+        // Empty cache hit — server hasn't responded yet, keep showing loader
+        setSyncStatus('connecting');
+        return;
+      } else {
+        // Genuine server response: document truly doesn't exist yet
+        // Safe to migrate from IndexedDB (first-time use on this account)
+        const l = await loadFromIndexedDB();
+        if (l && l.length) { cards = l; await saveCards(cards); }
+        else { cards = []; setSyncStatus('synced'); }
+      }
+
+      mirrorToIndexedDB(cards); render(); checkNotifPermission();
+      if (Notification.permission==='granted' && navigator.serviceWorker.controller)
+        navigator.serviceWorker.controller.postMessage({type:'CHECK_REMINDERS'});
+    },
+    err => {
+      console.error('Firestore error:', err.code, err.message);
+      setSyncStatus('offline');
+      const content=$('content');
+      if(content) content.innerHTML=`
+        <div class="empty">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">Couldn't load cards</div>
+          <div class="empty-sub" style="color:var(--danger);margin-bottom:16px;">${err.code||err.message}</div>
+          <div class="empty-sub">Check your Firestore security rules in Firebase Console, then reload the page.</div>
+        </div>`;
+      loadFromIndexedDB().then(s => { if(s&&s.length){ cards=s; render(); } });
+    }
+  );
 });
 </script>
 </body>
