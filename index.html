@@ -13,7 +13,9 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#0a0a0f;--surface:#13131a;--surface2:#1c1c27;--border:#2a2a3a;--accent:#c8f564;--accent2:#64c8f5;--danger:#f56464;--warn:#f5c864;--text:#f0f0f5;--muted:#6b6b80;--radius:16px;--chart-border:#0a0a0f;}
-html.light{--bg:#f4f4f9;--surface:#ffffff;--surface2:#eaeaf4;--border:#dcdcec;--text:#1a1a2e;--muted:#8080a8;--chart-border:#ffffff;}
+html.light .card-item.paid{background:rgba(61,140,0,.06);border-color:rgba(61,140,0,.18);}
+html.light .status-badge.paid{background:rgba(61,140,0,.1);border-color:rgba(61,140,0,.2);}
+html.light .badge-num.paid{color:#2e6800;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100dvh;overflow-x:hidden;padding-bottom:calc(env(safe-area-inset-bottom)+64px);}
 /* LOGIN */
@@ -104,7 +106,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .card-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:background .15s,transform .15s;}
 .card-item.overdue{background:rgba(204,34,34,.07);border-color:rgba(204,34,34,.3);}
 .card-item.urgent{background:rgba(245,100,100,.05);border-color:rgba(245,100,100,.2);}
-.card-item.paid{opacity:.45;}
+.card-item.paid{background:rgba(200,245,100,.05);border-color:rgba(200,245,100,.15);}
 .card-item:active{transform:scale(.99);}
 .card-item-top{display:flex;align-items:center;gap:12px;}
 .card-avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;letter-spacing:.5px;}
@@ -116,13 +118,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .status-badge.urgent{background:rgba(245,100,100,.15);}
 .status-badge.soon{background:rgba(245,200,100,.15);}
 .status-badge.ok{background:rgba(200,245,100,.12);}
-.status-badge.paid{background:var(--surface2);}
+.status-badge.paid{background:rgba(200,245,100,.12);border:1px solid rgba(200,245,100,.25);}
 .badge-num{font-family:'DM Serif Display',serif;font-size:22px;line-height:1;}
 .badge-num.overdue{color:#ff4444;}
 .badge-num.urgent{color:var(--danger);}
 .badge-num.soon{color:var(--warn);}
 .badge-num.ok{color:var(--accent);}
-.badge-num.paid{color:var(--muted);}
+.badge-num.paid{color:var(--accent);font-size:18px;}
 .badge-lbl{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
 /* UTIL BAR */
 .util-bar-wrap{display:flex;align-items:center;gap:8px;}
@@ -470,7 +472,8 @@ function render(){
       sub.push(`Due day ${card.day}`);if(card.statementDay)sub.push(`Stmt day ${card.statementDay}`);
       const pct=getUtilPct(card);
       const utilBar=pct!==null?`<div class="util-bar-wrap"><div class="util-bar-bg"><div class="util-bar-fill ${utilClass(pct)}" style="width:${pct}%"></div></div><span class="util-pct">${pct}% used</span></div>`:'';
-      content.innerHTML+=`<div class="card-item ${status}" data-id="${card.id}"><div class="card-item-top"><div class="card-avatar" style="background:${card.color}28;color:${card.color};">${initials}</div><div class="card-info"><div class="card-name">${card.name}</div><div class="card-sub">${sub.join(' · ')}</div></div><div class="status-badge ${status}"><div class="badge-num ${status}">${badgeNum}</div><div class="badge-lbl">${badgeLbl}</div></div></div>${utilBar}</div>`;
+      const paidChip = status === 'paid' ? `<span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:9px;font-weight:600;letter-spacing:.08em;padding:2px 7px;border-radius:100px;background:rgba(200,245,100,.15);color:var(--accent);border:1px solid rgba(200,245,100,.3);">PAID</span>` : '';
+      content.innerHTML+=`<div class="card-item ${status}" data-id="${card.id}"><div class="card-item-top"><div class="card-avatar" style="background:${card.color}28;color:${card.color};">${initials}</div><div class="card-info"><div class="card-name">${card.name}${paidChip}</div><div class="card-sub">${sub.join(' · ')}</div></div><div class="status-badge ${status}"><div class="badge-num ${status}">${badgeNum}</div><div class="badge-lbl">${badgeLbl}</div></div></div>${utilBar}</div>`;
     });
   });
   content.querySelectorAll('.card-item').forEach(el=>el.addEventListener('click',()=>openDetail(el.dataset.id)));
