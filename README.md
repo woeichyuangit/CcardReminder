@@ -15,7 +15,7 @@ A PWA (Progressive Web App) that installs on Android and iPhone like a native ap
 
 1. Go to **Settings → Pages** in this repo
 2. Set Source to **Deploy from a branch → main → / (root)** and **Save**
-3. The app is live at `https://<username>.github.io/<repo>/` (e.g. `https://woeichyuangit.github.io/ccardreminder/`)
+3. The app is live at `https://<username>.github.io/<repo>/` (e.g. `https://woeichyuangit.github.io/CcardReminder/`)
 
 All paths are relative, so it works under any repo name.
 

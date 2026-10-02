@@ -4,7 +4,7 @@
 // IndexedDB (cardremind-db / kv) so reminders can be computed here.
 
 const CACHE = 'cardremind-v6';
-const BASE = new URL(self.registration.scope).pathname; // e.g. /ccardreminder/
+const BASE = new URL(self.registration.scope).pathname; // e.g. /CcardReminder/
 const ICON = BASE + 'icon-192.png';
 const ASSETS = [BASE, BASE + 'index.html', BASE + 'manifest.json', ICON, BASE + 'icon-512.png'];
 
