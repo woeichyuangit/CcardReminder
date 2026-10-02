@@ -1,48 +1,42 @@
 # 💳 CardRemind – Credit Card Payment Reminder
 
-A PWA (Progressive Web App) that runs in the browser and can be installed on iPhone like a native app.
+A PWA (Progressive Web App) that installs on Android and iPhone like a native app and reminds you before each credit card payment is due.
 
 ## Features
-- Add multiple credit cards with due dates
-- Color-coded urgency (urgent / soon / upcoming)
-- Mark cards as paid each cycle
-- Summary strip showing total due
-- Browser notifications for upcoming payments
-- Works offline
-- Installable on iPhone via Safari
+- Add multiple credit cards with due dates (synced via Supabase, sign in with name + PIN)
+- Color-coded urgency (due soon / this week / upcoming)
+- Mark cards as paid each month
+- Summary strip showing total minimum due
+- Payment reminder notifications, N days before the due date (1, 2, 3, 5 or 7)
+- 📅 Add to calendar: a monthly calendar event with alarms, which always fires even when the app is closed
+- Works offline, installable on Android and iPhone
 
 ## Deploy to GitHub Pages
 
-1. Create a new GitHub repository (e.g. `cardremind`)
-2. Upload all files into the repo root:
-   - `index.html`
-   - `manifest.json`
-   - `sw.js`
-   - `icons/icon-192.png`
-   - `icons/icon-512.png`
-3. Go to **Settings → Pages**
-4. Set Source to **Deploy from a branch → main → / (root)**
-5. Click **Save** — your app will be live at:
-   `https://yourusername.github.io/cardremind`
+1. Go to **Settings → Pages** in this repo
+2. Set Source to **Deploy from a branch → main → / (root)** and **Save**
+3. The app is live at `https://<username>.github.io/<repo>/` (e.g. `https://woeichyuangit.github.io/CcardReminder/`)
 
-## Install on iPhone
+All paths are relative, so it works under any repo name.
 
-1. Open the URL in **Safari** (must be Safari, not Chrome)
-2. Tap the **Share** icon (box with arrow)
-3. Tap **"Add to Home Screen"**
-4. Tap **Add**
-5. Done! It appears on your home screen like a real app 📱
+## Install on Android
+1. Open the URL in **Chrome**
+2. Tap **Install app** in the app (or ⋮ menu → **Install app / Add to Home screen**)
+3. Open CardRemind and tap **Enable notifications**
 
-## App Icons
+## Install on iPhone (iOS 16.4 or later)
+1. Open the URL in **Safari**
+2. Tap **Share** → **Add to Home Screen** → **Add**
+3. Open CardRemind **from the Home Screen icon** and tap **Enable notifications**
 
-You need two icon files in the `icons/` folder:
-- `icons/icon-192.png` — 192×192 pixels
-- `icons/icon-512.png` — 512×512 pixels
+iOS only allows web notifications for apps added to the Home Screen.
 
-You can create a simple credit card icon using Canva, Figma, or any image editor.
-Use a dark background (#0a0a0f) with a 💳 emoji or custom design.
+## How reminders work (and their limits)
+There is no reminder server, so notifications are generated on the phone:
+- Every time you open the app, it checks what is due within your reminder window and notifies you (at most once a day).
+- On Android with the app installed, Chrome may also wake it in the background about once a day (Periodic Background Sync), depending on how often you use the app.
+- iPhone does not let web apps wake themselves in the background, so notifications appear only when you open the app.
 
-## Notes
-- All data is stored locally on the device (localStorage)
-- No server or backend needed
-- Notifications require Safari permission on iOS 16.4+
+For a reminder that **always** fires on time, use **📅 Add to calendar** on each card. It adds a monthly event on the due date with an alarm at 9am N days before and on the day.
+
+Fully automatic push notifications while the app is closed would need a small server job (e.g. a scheduled Supabase Edge Function sending Web Push).

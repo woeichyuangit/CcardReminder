@@ -4,7 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CardRemind" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#080b14" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <title>Card Reminders</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <style> html,body{margin:0;padding:0;background:#080b14;} </style>
@@ -59,12 +65,108 @@ const CARD_COLORS = [
   { bg: "#240046", accent: "#7b2d8b" },
 ];
 
+// Due day 31 falls on the last day of shorter months (30th, 28th/29th in Feb)
+function dueDateIn(dayOfMonth, year, month) {
+  const last = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(dayOfMonth, last));
+}
+
+function nextDueDate(dayOfMonth) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thisMonth = dueDateIn(dayOfMonth, today.getFullYear(), today.getMonth());
+  return thisMonth >= today ? thisMonth : dueDateIn(dayOfMonth, today.getFullYear(), today.getMonth() + 1);
+}
+
 function getDaysUntilDue(dayOfMonth) {
-  const today = new Date();
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
-  const target = thisMonth >= today ? thisMonth : nextMonth;
-  return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((nextDueDate(dayOfMonth) - today) / (1000 * 60 * 60 * 24));
+}
+
+// ─── Reminders ───────────────────────────────────────────────
+// Cards + settings are mirrored into IndexedDB so the service worker (sw.js)
+// can work out what's due and show the notification.
+const SETTINGS_KEY = "cardremind-settings";
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const canNotify = "Notification" in window && "serviceWorker" in navigator;
+
+function loadSettings() {
+  try { return { enabled: false, daysBefore: 3, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; }
+  catch { return { enabled: false, daysBefore: 3 }; }
+}
+
+function kvPut(entries) {
+  return new Promise((resolve) => {
+    if (!("indexedDB" in window)) return resolve();
+    const r = indexedDB.open("cardremind-db", 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore("kv");
+    r.onerror = () => resolve();
+    r.onsuccess = e => {
+      const tx = e.target.result.transaction("kv", "readwrite");
+      Object.entries(entries).forEach(([k, v]) => tx.objectStore("kv").put(v, k));
+      tx.oncomplete = tx.onerror = () => resolve();
+    };
+  });
+}
+
+async function postToSW(message) {
+  if (!("serviceWorker" in navigator)) return;
+  const reg = await navigator.serviceWorker.ready;
+  reg.active && reg.active.postMessage(message);
+}
+
+async function registerDailySync() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!("periodicSync" in reg)) return;
+    const status = await navigator.permissions.query({ name: "periodic-background-sync" });
+    if (status.state === "granted") await reg.periodicSync.register("daily-reminder", { minInterval: 12 * 60 * 60 * 1000 });
+  } catch {}
+}
+
+// Monthly calendar event with an alarm: works on any phone even when the app is closed
+function downloadCalendarReminder(card, daysBefore) {
+  const day = parseInt(card.dueDay) || 1;
+  const start = nextDueDate(day);
+  const ymd = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+  // Day 29–31: pick the last of those days that exists in each month
+  const rule = day > 28
+    ? `RRULE:FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: day - 27 }, (_, i) => 28 + i).join(",")};BYSETPOS=-1`
+    : `RRULE:FREQ=MONTHLY;BYMONTHDAY=${day}`;
+  const esc = s => String(s).replace(/[\\,;]/g, m => "\\" + m);
+  const title = esc(`💳 ${card.name} payment due`);
+  const desc = esc(card.minPayment ? `Minimum payment $${parseFloat(card.minPayment).toFixed(2)}` : "Credit card payment due");
+  const alarm = (trigger, text) => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${text}`, `TRIGGER:${trigger}`, "END:VALARM"];
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CardRemind//EN", "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:cardremind-${card.id}@cardremind`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`,
+    `DTSTART;VALUE=DATE:${ymd(start)}`,
+    `DTEND;VALUE=DATE:${ymd(end)}`,
+    rule,
+    `SUMMARY:${title}`,
+    `DESCRIPTION:${desc}`,
+    // All-day events start at midnight: 9am N days before = midnight minus (N-1) days 15h
+    ...alarm(daysBefore > 1 ? `-P${daysBefore - 1}DT15H` : "-PT15H", title),
+    ...alarm("PT9H", title),
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${card.name.replace(/[^\w-]+/g, "_") || "card"}-reminder.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 
 function getUrgency(days) {
@@ -146,6 +248,13 @@ function Login({ onLogin }) {
 // ─── Main app ────────────────────────────────────────────────
 function App() {
   const [auth, setAuth] = useState(null); // { username, pin }
+  // Remembered on this device so reminders keep working without signing in each time
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("cardremind-auth") || "null");
+      if (saved && saved.username && saved.pin) handleLogin(saved.username, saved.pin);
+    } catch {}
+  }, []);
   const [cards, setCards] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -153,6 +262,53 @@ function App() {
   const [form, setForm] = useState({ name: "", last4: "", dueDay: "", balance: "", minPayment: "", colorIdx: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [settings, setSettings] = useState(loadSettings);
+  const [permission, setPermission] = useState(canNotify ? Notification.permission : "unsupported");
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+  }, [settings]);
+
+  // Mirror cards for the service worker, then check what's due (once a day)
+  useEffect(() => {
+    if (!auth || loading) return;
+    kvPut({ cards, settings }).then(() => {
+      if (settings.enabled && permission === "granted") postToSW({ type: "CHECK_REMINDERS" });
+    });
+  }, [auth, cards, settings, permission, loading]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && settings.enabled && permission === "granted") postToSW({ type: "CHECK_REMINDERS" });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [settings, permission]);
+
+  async function enableNotifications() {
+    if (!canNotify) return;
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    if (result === "granted") {
+      setSettings(s => ({ ...s, enabled: true }));
+      registerDailySync();
+      postToSW({ type: "TEST_NOTIFICATION" });
+    }
+  }
+
+  async function installApp() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => {});
+    setInstallPrompt(null);
+  }
 
   // The stored identity key = username + pin, so a wrong PIN loads nothing
   const identity = auth ? `${auth.username}#${auth.pin}` : null;
@@ -174,12 +330,15 @@ function App() {
   function handleLogin(username, pin) {
     const id = `${username}#${pin}`;
     setAuth({ username, pin });
+    try { localStorage.setItem("cardremind-auth", JSON.stringify({ username, pin })); } catch {}
     loadCards(id);
   }
 
   function logout() {
     setAuth(null);
     setCards([]);
+    try { localStorage.removeItem("cardremind-auth"); } catch {}
+    kvPut({ cards: [] });
   }
 
   async function addCard(cardData) {
@@ -337,6 +496,40 @@ function App() {
               </div>
             </div>
           )}
+          <div style={{ marginTop: 20, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", padding: "14px 18px", fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>🔔 PAYMENT REMINDERS</div>
+
+            {isIOS && !isStandalone ? (
+              <div style={{ color: "rgba(255,255,255,0.75)" }}>
+                On iPhone, notifications only work after you install the app: tap <b>Share</b> → <b>Add to Home Screen</b>, then open CardRemind from your Home Screen and turn reminders on.
+              </div>
+            ) : permission === "unsupported" ? (
+              <div style={{ color: "rgba(255,255,255,0.75)" }}>This browser can't show notifications. Use "Add to calendar" on each card instead.</div>
+            ) : permission === "denied" ? (
+              <div style={{ color: "#ff9500" }}>Notifications are blocked. Allow them for this app in your phone's Settings, then reopen it.</div>
+            ) : settings.enabled && permission === "granted" ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", color: "rgba(255,255,255,0.75)" }}>
+                <span style={{ color: "#30d158" }}>On</span>
+                <span>· remind me</span>
+                <select className="input" style={{ width: "auto", padding: "4px 8px" }} value={settings.daysBefore}
+                  onChange={e => setSettings(s => ({ ...s, daysBefore: parseInt(e.target.value) }))}>
+                  {[1, 2, 3, 5, 7].map(n => <option key={n} value={n} style={{ color: "#000" }}>{n} day{n > 1 ? "s" : ""}</option>)}
+                </select>
+                <span>before</span>
+                <button className="btn-ghost" style={{ padding: "4px 10px" }} onClick={() => postToSW({ type: "TEST_NOTIFICATION" })}>TEST</button>
+                <button className="btn-ghost" style={{ padding: "4px 10px", borderColor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.5)" }} onClick={() => setSettings(s => ({ ...s, enabled: false }))}>TURN OFF</button>
+              </div>
+            ) : (
+              <button className="btn-primary" onClick={enableNotifications}>ENABLE NOTIFICATIONS</button>
+            )}
+
+            {installPrompt && (
+              <button className="btn-ghost" style={{ marginTop: 10 }} onClick={installApp}>⬇ INSTALL APP</button>
+            )}
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 8 }}>
+              Notifications appear when you open the app (and about once a day on installed Android). For a reminder that always fires, use 📅 Add to calendar on each card.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -422,6 +615,9 @@ function App() {
                   </button>
                   <button className="btn-ghost" style={{ borderColor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.5)" }} onClick={() => openEdit(card)}>
                     EDIT
+                  </button>
+                  <button className="btn-ghost" style={{ borderColor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.5)" }} onClick={() => downloadCalendarReminder(card, settings.daysBefore)}>
+                    📅 ADD TO CALENDAR
                   </button>
                   <button className="btn-danger" onClick={() => deleteCard(card.id)}>DELETE</button>
                 </div>
